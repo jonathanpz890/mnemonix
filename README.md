@@ -1,8 +1,9 @@
 # 🧠 Mnemonix
 
 A light-weight utility toolkit for Node.js and TypeScript, focused on smart, developer-friendly logging and diagnostics.  
-Mnemonix gives you beautiful logs, stack-aware insights, execution timers, and more — with zero setup.
+Mnemonix gives you beautiful logs, stack-aware insights, execution timers, memory tracking, and event loop monitoring — with zero setup.
 
+✅ **Universal Compatibility**: Works seamlessly with both **CommonJS** (`require`) and **ES Modules** (`import`).
 
 ## 📦 Installation
 
@@ -23,100 +24,143 @@ Mnemonix includes a built-in `logger` object with four core methods:
 - `error()`
 - `debug()`
 
-These log messages with timestamps, color-coded levels, and clickable file references. You can pass one or two values to each method — the first is the main message (string, object, or error), and the second is optional additional data like context or a stack trace.
+These log messages with timestamps, color-coded levels, and clickable file references.
 
 ### ✅ Usage
 
 ```ts
 import { logger } from 'mnemonix';
 
-// Basic usage with one value
+// Basic usage
 logger.info('Server started');
-logger.warn('Low disk space');
-logger.error(new Error('Failed to connect'));
-logger.debug('Debugging mode enabled');
 
-// You can also pass a second value (object, error, metadata, etc.)
-logger.info('User login attempt', { userId: 123 });
+// Context and Metadata
 logger.warn('Missing field', { field: 'email' });
-logger.error('Unhandled exception occurred', new Error('Oops'));
-logger.debug('Payload received', { body: req.body });
+logger.error('Database error', new Error('Connection failed'));
 ```
 
 ### 🖨️ Example Output
 
-> 💡 In supported terminals (like VSCode or iTerm2), the file name (e.g. `index.ts`) is clickable — clicking it opens the source log line in your editor.
+> 💡 In supported terminals (like VSCode or iTerm2), the file name is clickable — taking you straight to the code.
 
-```ts
-logger.info('User login successful');
-// 2025-06-24T11:00:00.123Z [INFO] User login successful (index.ts)
+```bash
+2026-06-24T11:00:00.123Z [INFO] Server started (index.ts)
+2026-06-24T11:00:01.456Z [WARN] Missing field (user.ts)
+{ field: 'email' }
 ```
-
-```ts
-logger.warn('Missing field in request', { field: 'email' });
-// 2025-06-24T11:00:01.456Z [WARN] Missing field in request (index.ts)
-// { field: 'email' }
-```
-
-```ts
-logger.error('Database error occurred', new Error('Connection timeout'));
-// 2025-06-24T11:00:02.789Z [ERROR] Database error occurred (index.ts)
-// Error: Connection timeout
-//     at connectToDatabase (/app/db.ts:42:13)
-//     at handleRequest (/app/index.ts:10:5)
-```
-
-### 📜 API
-
-```ts
-logger.info(value1: any, value2?: any): void
-logger.warn(value1: any, value2?: any): void
-logger.error(value1: any, value2?: any): void
-logger.debug(value1: any, value2?: any): void
-```
-
-- `value1`: The **main message**, can be a `string`, `object`, or even an `Error`.
-- `value2` *(optional)*: Any **additional data** you want to log (object, error, metadata, etc).
-- Both values are passed through to `console.log`/`console.error` with formatting and stack awareness.
 
 ---
 
-## ⏱️ Timer Utility
+## ⏱️ Timer
 
-Measure and log how long a function (sync or async) takes to run — with file trace context.
+Measure and log how long a function (sync or async) takes to run.
 
 ### ✅ Usage
 
 ```ts
 import { timer } from 'mnemonix';
 
+// Async functions
 await timer('Load users', async () => {
-	await new Promise((res) => setTimeout(res, 200));
+    await db.fetchUsers();
 });
 
-timer('Heavy computation', () => {
-	for (let i = 0; i < 1e6; i++) {}
+// Sync functions
+timer('Complex Math', () => {
+    heavyComputation();
 });
 ```
 
 ### 🖨️ Example Output
-
 ```bash
-2025-06-24T12:05:00.123Z [INFO] Load users took 201ms
-2025-06-24T12:05:00.456Z [INFO] Heavy computation took 18ms
+2026-06-24T12:05:00.123Z [INFO] Load users took 201ms
 ```
 
-- Works with both async and sync functions.
-- Prints a stack trace if the function throws.
+---
+
+## 💾 Memory Utilities (Heap)
+
+Monitor your application's memory usage in real-time. Detect leaks, optimize heavy operations, and keep track of your heap size with precision.
+
+### `heapSnapshot()`
+Instantly log the current heap usage of your application.
+
+```ts
+import { heapSnapshot } from 'mnemonix';
+
+heapSnapshot('Initialization');
+```
+Output:
+```bash
+2026-06-24T12:00:00.000Z [INFO] [MEMORY] Initialization: 25.4 MB
+```
+
+### `heapCheck()`
+Measure the **difference** in memory allocation caused by a function. Great for finding memory leaks or optimizing heavy processes.
+
+```ts
+import { heapCheck } from 'mnemonix';
+
+await heapCheck('Process Huge Data', async () => {
+    const data = new Array(1_000_000).fill('test');
+});
+```
+Output:
+```bash
+2026-06-24T12:00:05.000Z [INFO] [MEMORY] Process Huge Data: 35.8 MB (+10.4 MB)
+```
+*Displays the final memory usage and the delta (e.g., `+10.4 MB` in red, or `-2 KB` in green).*
+
+---
+
+## 🍞 Breadcrumbs (Trace History)
+
+Keep a running history of the last 50 log events in memory without spamming your console. When an error occurs, flush the breadcrumbs to see exactly what led up to the crash.
+
+### ✅ Usage
+
+```ts
+import { addBreadcrumb, flushBreadcrumbs } from 'mnemonix';
+
+// Log internal steps that you don't want to see unless something breaks
+addBreadcrumb('User clicked checkout');
+addBreadcrumb('Validating cart items', 'CART');
+
+try {
+    processOrder();
+} catch (err) {
+    console.error('Order failed!');
+    // Print the history leading up to the error
+    flushBreadcrumbs();
+}
+```
+
+---
+
+## 💓 Heartbeat (Event Loop Monitor)
+
+Node.js is single-threaded. If a heavy calculation blocks the event loop, your server freezes. The Heartbeat monitor detects these freezes and warns you.
+
+### ✅ Usage
+
+```ts
+import { startHeartbeat } from 'mnemonix';
+
+// Start monitoring (best done at app startup)
+startHeartbeat();
+
+// If the event loop is blocked for >100ms, you'll see:
+// [WARN] [🔥 EVENT LOOP BLOCKED] delayed by 450ms
+```
 
 ---
 
 ## 📁 File Structure Insight
 
-Mnemonix uses `Error.captureStackTrace` to find the file that called the logger — helping you debug faster by showing exactly where each log originated.
+Mnemonix uses `Error.captureStackTrace` to find the file that called the tool — helping you debug faster by showing exactly where each log or measurement originated.
 
 ---
 
 ## 🪪 License
 
-MIT © 2025
+MIT © 2026

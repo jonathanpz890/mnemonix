@@ -1,18 +1,13 @@
-import chalk from 'chalk';
+import { getTimestamp, getLevelPrefix, formatError, formatFileDisplay } from './Formatter.js'; /**/
+import { getStackDetails } from './Stack.js';
 
-function logFromTimer(
-    level: 'info' | 'error',
-    message: string,
-    err?: Error
-) {
-    const time = new Date().toISOString();
-    const prefix = level === 'info'
-        ? chalk.blueBright('[INFO]')
-        : chalk.red('[ERROR]');
+function logFromTimer(level: 'info' | 'error', message: string, err?: Error) {
+    const time = getTimestamp();
+    const prefix = getLevelPrefix(level);
+    const errorDetails = formatError(err);
 
-    const errorDetails = err?.stack ? `\n${chalk.gray(err.stack)}` : '';
-
-    const formatted = `${chalk.gray(time)} ${prefix} ${message} ${errorDetails}`;
+    const { display } = getStackDetails();
+    const formatted = `${time} ${prefix} ${message} ${formatFileDisplay(display)}${errorDetails}`;
 
     if (level === 'info') {
         console.log(formatted);
@@ -23,7 +18,7 @@ function logFromTimer(
 
 export async function timer<T>(
     label: string,
-    fn: () => Promise<T> | T
+    fn: () => Promise<T> | T,
 ): Promise<T> {
     const start = performance.now();
 
@@ -38,7 +33,11 @@ export async function timer<T>(
         const end = performance.now();
         const duration = Math.round(end - start);
 
-        logFromTimer('error', `${label} failed after ${duration}ms`, err as Error);
+        logFromTimer(
+            'error',
+            `${label} failed after ${duration}ms`,
+            err as Error,
+        );
         throw err;
     }
 }

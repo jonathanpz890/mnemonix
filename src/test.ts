@@ -1,6 +1,6 @@
-import { timer } from "./utilities/Timer";
+import { timer } from './utilities/Timer.js';
 
-timer("Test Timer", async () => {
-    const response = await fetch("https://jsonplaceholder.typicode.com/todos");
+timer('Test Timer', async () => {
+    const response = await fetch('https://jsonplaceholder.typicode.com/todos');
     console.log(response);
-})
+});
